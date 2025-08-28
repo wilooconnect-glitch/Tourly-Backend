@@ -14,7 +14,7 @@ const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'snd-crm-backend' },
+  defaultMeta: { service: 'tourly-backend' },
   transports: [
     // Console transport for development
     new winston.transports.Console({

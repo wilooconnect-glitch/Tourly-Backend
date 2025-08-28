@@ -1,5 +1,5 @@
 {
-  "name": "snd-crm-backend",
+  "name": "tourly-backend",
   "version": "1.0.0",
   "description": "Backend API with TypeScript, Express, GraphQL, Socket.IO, MongoDB, Redis",
   "main": "dist/index.js",
