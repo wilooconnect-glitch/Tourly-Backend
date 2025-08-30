@@ -17,7 +17,7 @@ import { Role } from '../models/Role';
 import { User } from '../models/User';
 import { UserOrganizationRole } from '../models/UserOrganizationRole';
 import authRoutes from './auth';
-import franchiseeRoutes from './franchisee';
+import organizationRoutes from './organization';
 
 interface CreateRoleBody {
   name: string;
@@ -28,15 +28,15 @@ interface CreateRoleBody {
   }>;
 }
 
-interface CreateCrmOwnerBody {
+interface CreateOrganizationOwnerBody {
   email: string;
   password: string;
   username: string;
   firstName: string;
   lastName: string;
 }
-
-interface CreateFranchiseeAdminBody {
+  
+interface CreateOrganizationAdminBody {
   email: string;
   password: string;
   username: string;
@@ -50,10 +50,10 @@ const router = Router();
 // Mount auth routes
 router.use('/auth', authRoutes);
 
-// Mount franchisee routes
-router.use('/franchisees', franchiseeRoutes);
+// Mount organization routes
+router.use('/organizations', organizationRoutes);
 
-// Create new role (CRM Owner only)
+// Create new role (Organization Owner only)
 router.post(
   '/roles',
   verifyAccessToken,
@@ -90,11 +90,11 @@ router.post(
   }
 );
 
-// Create CRM Owner (Basic Auth)
+// Create Organization Owner (Basic Auth)
 router.post(
-  '/crm-owner',
+  '/organization-owner',
   basicAuthMiddleware,
-  async (req: Request<{}, {}, CreateCrmOwnerBody>, res: Response) => {
+  async (req: Request<{}, {}, CreateOrganizationOwnerBody>, res: Response) => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -122,13 +122,13 @@ router.post(
         });
       }
 
-      // Get CRM Owner role
-      const crmOwnerRole = await Role.findOne({ name: 'CRM Owner' });
-      if (!crmOwnerRole) {
+      // Get Organization Owner role
+      const organizationOwnerRole = await Role.findOne({ name: 'Organization Owner' });
+      if (!organizationOwnerRole) {
         // create the role
         await Role.create({
-          name: 'CRM Owner',
-          description: 'CRM Owner',
+          name: 'Organization Owner',
+          description: 'Organization Owner',
           permissions: [],
           isSystemRole: false,
         });
@@ -153,16 +153,16 @@ router.post(
         throw new Error('Failed to create user');
       }
 
-      // add to userfranchisee role
+      // add to userorganization role
       const userOrganizationRole = await UserOrganizationRole.create({
         userId: user.userId,
         organizationId: uuidv4(),
-        roleId: crmOwnerRole?.roleId,
+        roleId: organizationOwnerRole?.roleId,
         status: 'active',
       });
 
       if (!userOrganizationRole) {
-        throw new Error('Failed to create user franchisee role');
+        throw new Error('Failed to create user organization role');
       }
 
       await session.commitTransaction();
@@ -190,12 +190,12 @@ router.post(
   }
 );
 
-// Create Franchisee Admin (CRM Owner only)
+// Create Organization Admin (Organization Owner only)
 router.post(
-  '/franchisee-admin',
+  '/organization-admin',
   verifyAccessToken,
   verifyCrmOwner,
-  async (req: Request<{}, {}, CreateFranchiseeAdminBody>, res: Response) => {
+  async (req: Request<{}, {}, CreateOrganizationAdminBody>, res: Response) => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -231,7 +231,7 @@ router.post(
         });
       }
 
-      // Check if franchisee exists
+      // Check if organization exists
       const organization = await Organization.findOne({ organizationId });
       if (!organization) {
         return res.status(404).json({
@@ -239,7 +239,7 @@ router.post(
         });
       }
 
-      // Get Franchisee Admin role
+      // Get Organization Admin role
       const adminRole = await Role.findOne({ name: 'Organization Admin' });
       if (!adminRole) {
         throw new Error('Organization Admin role not found');
@@ -264,7 +264,7 @@ router.post(
         throw new Error('Failed to create user');
       }
 
-      // Assign Franchisee Admin role
+      // Assign Organization Admin role
       await UserOrganizationRole.create(
         [
           {
@@ -360,8 +360,8 @@ router.delete('/cache', async (req, res, next) => {
 
 // first the role will be created and then the owner or the admin users will be created
 
-// onboard crm admin user role and franchisee admin user role
+// onboard organization admin user role and organization admin user role
 
-// crm owner add endpoint based on basic auth with the user id and password
+// organization owner add endpoint based on basic auth with the user id and password
 
 export { router as apiRoutes };

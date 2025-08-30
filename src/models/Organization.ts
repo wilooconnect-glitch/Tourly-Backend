@@ -7,6 +7,8 @@ export interface IOrganization extends Document {
   organizationId: string;
   name: string;
   description: string;
+  slug: string;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +27,15 @@ const organizationSchema = new Schema<IOrganization>(
     },
     description: {
       type: String,
+    },
+    slug: {
+      type: String,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ['active', 'inactive', 'suspended'],
+      default: 'active',
     },
   },
   { timestamps: true }

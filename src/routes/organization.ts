@@ -3,14 +3,14 @@ import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { verifyAccessToken } from '../middleware/authMiddleware';
 import { verifyCrmOwner } from '../middleware/crmAuthMiddleware';
-import { Franchisee } from '../models/Franchisee';
+import { Organization } from '../models/Organization';
 import { Role } from '../models/Role';
 import { IUser } from '../models/User';
-import { UserFranchiseeRole } from '../models/UserFranchiseeRole';
+import { UserOrganizationRole } from '../models/UserOrganizationRole';
 
 const router = Router();
 
-interface CreateFranchiseeBody {
+interface CreateOrganizationBody {
   name: string;
   email: string;
   description?: string;
@@ -20,7 +20,7 @@ router.post(
   '/',
   verifyAccessToken,
   verifyCrmOwner,
-  async (req: Request<{}, {}, CreateFranchiseeBody>, res: Response) => {
+  async (req: Request<{}, {}, CreateOrganizationBody>, res: Response) => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -35,15 +35,15 @@ router.post(
       }
 
       // Get admin role
-      const adminRole = await Role.findOne({ name: 'Franchisee Admin' });
+      const adminRole = await Role.findOne({ name: 'Organization Admin' });
       if (!adminRole) {
         throw new Error(
           'Required roles not found. Please run system initialization.'
         );
       }
 
-      // Create franchisee
-      const franchisees = await Franchisee.create(
+      // Create organization
+      const organizations = await Organization.create(
         [
           {
             name,
@@ -56,17 +56,17 @@ router.post(
         { session }
       );
 
-      const franchisee = franchisees[0];
-      if (!franchisee) {
-        throw new Error('Failed to create franchisee');
+      const organization = organizations[0];
+      if (!organization) {
+        throw new Error('Failed to create organization');
       }
 
-      // Add user to franchisee as admin
-      await UserFranchiseeRole.create(
+      // Add user to organization as admin
+      await UserOrganizationRole.create(
         [
           {
             userId: user.userId,
-            franchiseeId: franchisee.franchiseeId,
+            organizationId: organization.organizationId,
             roleId: adminRole.roleId,
             branchRoleId: uuidv4(),
             branchId: uuidv4(),
@@ -83,10 +83,10 @@ router.post(
       await session.commitTransaction();
 
       return res.status(201).json({
-        franchisee: {
-          franchiseeId: franchisee.franchiseeId,
-          name: franchisee.name,
-          slug: franchisee.slug,
+        organization: {
+          organizationId: organization.organizationId,
+          name: organization.name,
+          slug: organization.slug,
         },
       });
     } catch (error) {
@@ -98,6 +98,6 @@ router.post(
   }
 );
 
-// add a new user to the franchisee with a role but the verifytoken function will be for the admin of the franchisee
+// add a new user to the organization with a role but the verifytoken function will be for the admin of the organization
 
 export default router;
