@@ -2,9 +2,9 @@ import bcrypt from 'bcryptjs';
 import mongoose, { Document, Schema } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config/app.config';
-import { Franchisee, IFranchisee } from './Franchisee';
 import { IRole, Role } from './Role';
-import { IUserFranchiseeRole, UserFranchiseeRole } from './UserFranchiseeRole';
+import { IUserOrganizationRole, UserOrganizationRole } from './UserOrganizationRole';
+import { IOrganization, Organization } from './Organization';
 
 export interface IUser extends Document {
   userId: string;
@@ -29,27 +29,26 @@ export interface IUser extends Document {
 
   // Methods
   comparePassword(candidatePassword: string): Promise<boolean>;
-  getFranchisees(): Promise<
+  getOrganizations(): Promise<
     Array<{
-      franchisee: IFranchisee;
-      role: IRole;
+      organization: IOrganization;
       status: string;
       isPrimary: boolean;
     }>
   >;
-  getPrimaryFranchisee(): Promise<{
-    franchisee: IFranchisee;
+  getPrimaryOrganization(): Promise<{
+    organization: IOrganization;
     role: IRole;
     status: string;
   } | null>;
-  hasRole(franchiseeId: string, roleName: string): Promise<boolean>;
-  addToFranchisee(
-    franchiseeId: string,
+  hasRole(organizationId: string, roleName: string): Promise<boolean>;
+  addToOrganization(
+    organizationId: string,
     roleId: string,
     isPrimary?: boolean
-  ): Promise<IUserFranchiseeRole>;
-  removeFromFranchisee(franchiseeId: string): Promise<void>;
-  getPermissionsForFranchisee(franchiseeId: string): Promise<
+  ): Promise<IUserOrganizationRole>;
+  removeFromOrganization(organizationId: string): Promise<void>;
+  getPermissionsForOrganization(organizationId: string): Promise<
     Array<{
       resource: string;
       actions: string[];
@@ -157,18 +156,18 @@ userSchema.methods.comparePassword = async function (
 };
 
 // Get all franchisees for the user with their roles
-userSchema.methods.getFranchisees = async function (): Promise<
+userSchema.methods.getOrganizations = async function (): Promise<
   Array<{
-    franchisee: IFranchisee;
+    organization: IOrganization;
     role: IRole;
     status: string;
     isPrimary: boolean;
   }>
 > {
-  const memberships = await UserFranchiseeRole.find({ userId: this.userId })
+  const memberships = await UserOrganizationRole.find({ userId: this.userId })
     .populate({
-      path: 'franchiseeId',
-      model: 'Franchisee',
+      path: 'organizationId',
+      model: 'Organization',
       select: 'franchiseeId name status',
     })
     .populate({
@@ -179,7 +178,7 @@ userSchema.methods.getFranchisees = async function (): Promise<
     .sort({ isPrimary: -1, createdAt: -1 });
 
   return memberships.map(membership => ({
-    franchisee: membership.franchiseeId as unknown as IFranchisee,
+    organization: membership.organizationId as unknown as IOrganization,
     role: membership.roleId as unknown as IRole,
     status: membership.status,
     isPrimary: membership.isPrimary,
@@ -187,18 +186,18 @@ userSchema.methods.getFranchisees = async function (): Promise<
 };
 
 // Get user's primary franchisee
-userSchema.methods.getPrimaryFranchisee = async function (): Promise<{
-  franchisee: IFranchisee;
+userSchema.methods.getPrimaryOrganization = async function (): Promise<{
+  organization: IOrganization;
   role: IRole;
   status: string;
 } | null> {
-  const membership = await UserFranchiseeRole.findOne({
+  const membership = await UserOrganizationRole.findOne({
     userId: this.userId,
     isPrimary: true,
   })
     .populate({
-      path: 'franchiseeId',
-      model: 'Franchisee',
+      path: 'organizationId',
+      model: 'Organization',
       select: 'franchiseeId name status',
     })
     .populate({
@@ -210,7 +209,7 @@ userSchema.methods.getPrimaryFranchisee = async function (): Promise<{
   if (!membership) return null;
 
   return {
-    franchisee: membership.franchiseeId as unknown as IFranchisee,
+    organization: membership.organizationId as unknown as IOrganization,
     role: membership.roleId as unknown as IRole,
     status: membership.status,
   };
@@ -218,12 +217,12 @@ userSchema.methods.getPrimaryFranchisee = async function (): Promise<{
 
 // Check if user has a specific role in a franchisee
 userSchema.methods.hasRole = async function (
-  franchiseeId: string,
+  organizationId: string,
   roleName: string
 ): Promise<boolean> {
-  const membership = await UserFranchiseeRole.findOne({
+  const membership = await UserOrganizationRole.findOne({
     userId: this.userId,
-    franchiseeId,
+    organizationId,
     status: 'active',
   }).populate({
     path: 'roleId',
@@ -231,31 +230,31 @@ userSchema.methods.hasRole = async function (
     select: 'roleId name permissions',
   });
 
-  if (!membership) return false;
+  if (!membership) return false;  
   return (membership.roleId as unknown as IRole).name === roleName;
 };
 
 // Add user to a franchisee with a role
-userSchema.methods.addToFranchisee = async function (
-  franchiseeId: string,
+userSchema.methods.addToOrganization = async function (
+  organizationId: string,
   roleId: string,
   isPrimary: boolean = false
-): Promise<IUserFranchiseeRole> {
+): Promise<IUserOrganizationRole> {
   // Check if franchisee and role exist
-  const [franchisee, role] = await Promise.all([
-    Franchisee.findOne({ franchiseeId }),
+  const [organization, role] = await Promise.all([
+    Organization.findOne({ organizationId }),
     Role.findOne({ roleId }),
   ]);
 
-  if (!franchisee || !role) {
-    throw new Error('Franchisee or role not found');
+  if (!organization || !role) {
+    throw new Error('Organization or role not found');
   }
 
   // Create or update the membership
-  const membership = await UserFranchiseeRole.findOneAndUpdate(
+  const membership = await UserOrganizationRole.findOneAndUpdate(
     {
       userId: this.userId,
-      franchiseeId,
+      organizationId,
     },
     {
       roleId,
@@ -277,27 +276,27 @@ userSchema.methods.addToFranchisee = async function (
 };
 
 // Remove user from a franchisee
-userSchema.methods.removeFromFranchisee = async function (
-  franchiseeId: string
+userSchema.methods.removeFromOrganization = async function (
+  organizationId: string
 ): Promise<void> {
-  await UserFranchiseeRole.deleteOne({
+  await UserOrganizationRole.deleteOne({
     userId: this.userId,
-    franchiseeId,
+      organizationId,
   });
 };
 
 // Get user's permissions for a specific franchisee
-userSchema.methods.getPermissionsForFranchisee = async function (
-  franchiseeId: string
+userSchema.methods.getPermissionsForOrganization = async function (
+  organizationId: string
 ): Promise<
   Array<{
     resource: string;
     actions: string[];
   }>
 > {
-  const membership = await UserFranchiseeRole.findOne({
+  const membership = await UserOrganizationRole.findOne({
     userId: this.userId,
-    franchiseeId,
+    organizationId,
     status: 'active',
   }).populate({
     path: 'roleId',

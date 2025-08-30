@@ -1,17 +1,19 @@
+import bcrypt from 'bcryptjs';
 import mongoose, { Document, Schema } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
+import { config } from '../config/app.config';
 
-export interface IOfficeJobType extends Document {
-  officeJobTypeId: string;
+export interface IOrganization extends Document {
+  organizationId: string;
   name: string;
   description: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const officeJobTypeSchema = new Schema<IOfficeJobType>(
+const organizationSchema = new Schema<IOrganization>(
   {
-    officeJobTypeId: {
+    organizationId: {
       type: String,
       required: true,
       unique: true,
@@ -23,15 +25,9 @@ const officeJobTypeSchema = new Schema<IOfficeJobType>(
     },
     description: {
       type: String,
-      required: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-export const OfficeJobType = mongoose.model<IOfficeJobType>(
-  'OfficeJobType',
-  officeJobTypeSchema
-);
+export const Organization = mongoose.model<IOrganization>('Organization', organizationSchema);

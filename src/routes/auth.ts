@@ -8,9 +8,10 @@ import {
   setRefreshTokenCookie,
   verifyAccessToken,
 } from '../middleware/authMiddleware';
+import mongoose from 'mongoose';
 import { Role } from '../models/Role';
 import { IUser, User } from '../models/User';
-import { UserFranchiseeRole } from '../models/UserFranchiseeRole';
+import { UserOrganizationRole } from '../models/UserOrganizationRole';
 import { parseTimeString } from '../utils/timeUtils';
 
 const router = Router();
@@ -25,7 +26,7 @@ interface RegisterBody {
   username: string;
   firstName: string;
   lastName: string;
-  franchiseeId: string;
+  organizationId: string;
 }
 
 interface LoginBody {
@@ -39,11 +40,11 @@ router.post(
   '/register',
   async (req: Request<{}, {}, RegisterBody>, res: Response) => {
     // Start a new session for the transaction
-    // const session = await mongoose.startSession();
-    // session.startTransaction();
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
-      const { email, password, username, firstName, lastName, franchiseeId } =
+      const { email, password, username, firstName, lastName, organizationId } =
         req.body;
 
       // Validate request body
@@ -53,9 +54,9 @@ router.post(
         !username ||
         !firstName ||
         !lastName ||
-        !franchiseeId
+        !organizationId
       ) {
-        // await session.endSession();
+        await session.endSession();
         return res.status(400).json({
           message:
             'All fields are required: email, password, username, firstName, lastName, franchiseeId',
@@ -71,8 +72,8 @@ router.post(
       });
 
       if (existingUser) {
-        // await session.abortTransaction();
-        // session.endSession();
+        await session.abortTransaction();
+        session.endSession();
         return res.status(409).json({
           message: 'User with this email or username already exists',
         });
@@ -80,8 +81,8 @@ router.post(
       // Get admin role - do this outside transaction as it's just a read
       const adminRole = await Role.findOne({ name: 'Admin' });
       if (!adminRole) {
-        // await session.abortTransaction();
-        // session.endSession();
+        await session.abortTransaction();
+        session.endSession();
         return res.status(500).json({
           message:
             'Required roles not found. Please run system initialization.',
@@ -98,8 +99,8 @@ router.post(
             firstName,
             lastName,
           },
-        ]
-        // { session }
+        ],
+        { session }
       );
 
       const user = users[0];
@@ -108,11 +109,11 @@ router.post(
       }
 
       // Add user to franchisee as admin within transaction
-      await UserFranchiseeRole.create(
+      await UserOrganizationRole.create(
         [
           {
             userId: user.userId,
-            franchiseeId: franchiseeId,
+            organizationId: organizationId,
             roleId: adminRole.roleId,
             status: 'active',
             branchRoleId: '1',
@@ -121,23 +122,23 @@ router.post(
               acceptedAt: new Date(),
             },
           },
-        ]
-        // { session }
+        ],
+        { session }
       );
       // Generate tokens
       const { accessToken, refreshToken } = await generateTokens(user.userId);
 
       // Commit the transaction
-      // await session.commitTransaction();
-      // session.endSession();
+      await session.commitTransaction();
+      session.endSession();
       // Set refresh token in HttpOnly cookie
       setRefreshTokenCookie(res, refreshToken);
 
       // Return only the access token in response
       return res.status(201).json({
         accessToken,
-        franchisee: {
-          franchiseeId: franchiseeId,
+        organization: {
+          organizationId: organizationId,
         },
         user: {
           userId: user.userId,
@@ -149,8 +150,8 @@ router.post(
       });
     } catch (error) {
       // If anything fails, abort the transaction
-      // await session.abortTransaction();
-      // session.endSession();
+      await session.abortTransaction();
+      session.endSession();
       return res.status(500).json({ message: 'Internal server error' });
     }
   }
@@ -161,7 +162,7 @@ router.post(
   '/login',
   async (req: Request<{}, {}, LoginBody>, res: Response) => {
     try {
-      const { email, password, branchId } = req.body;
+      const { email, password } = req.body;
 
       // Validate request body
       if (!email || !password) {
@@ -196,27 +197,26 @@ router.post(
       // Set refresh token in HttpOnly cookie
       setRefreshTokenCookie(res, refreshToken);
 
-      if (!branchId) {
-        const allBranches = await UserFranchiseeRole.find({
-          userId: user.userId,
-        });
+      // if (!branchId) {
+      //   const allBranches = await UserFranchiseeRole.find({
+      //     userId: user.userId,
+      //   });
 
-        const topmostBranchId = allBranches?.[0]?.branchId;
+      //   const topmostBranchId = allBranches?.[0]?.branchId;
 
-        if (!topmostBranchId) {
-          return res.status(400).json({ message: 'No branch found' });
-        }
+      //   if (!topmostBranchId) {
+      //     return res.status(400).json({ message: 'No branch found' });
+      //   }
 
-        return res.json({
-          accessToken,
-          branchId: topmostBranchId,
-        });
-      }
+      //   return res.json({
+      //     accessToken,
+      //     branchId: topmostBranchId,
+      //   });
+      // }
 
       // Return only the access token in response
       return res.json({
-        accessToken,
-        branchId: branchId,
+        accessToken
       });
     } catch (error) {
       return res.status(500).json({ message: 'Internal server error' });
