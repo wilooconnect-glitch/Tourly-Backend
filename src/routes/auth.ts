@@ -32,7 +32,7 @@ interface RegisterBody {
 interface LoginBody {
   email: string;
   password: string;
-  branchId?: string;
+  organizationId?: string;
 }
 
 // Register endpoint

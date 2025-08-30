@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
 import { config } from '../config/app.config';
 import { Role } from '../models/Role';
-import { UserFranchiseeRole } from '../models/UserFranchiseeRole';
+import { UserOrganizationRole } from '../models/UserOrganizationRole';
 
-// Basic auth middleware for initial setup
+// Basic auth middleware for initial setup for Organization Owner
 export const basicAuthMiddleware = async (
   req: Request,
   res: Response,
@@ -43,7 +43,7 @@ export const basicAuthMiddleware = async (
   }
 };
 
-// Verify CRM owner role middleware
+// Verify Organization Owner role middleware
 export const verifyCrmOwner = async (
   req: Request,
   res: Response,
@@ -55,21 +55,21 @@ export const verifyCrmOwner = async (
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const crmOwnerRole = await Role.findOne({ name: 'CRM Owner' });
-    if (!crmOwnerRole) {
-      return res.status(500).json({ message: 'CRM Owner role not found' });
+    const organizationOwnerRole = await Role.findOne({ name: 'Organization Owner' });
+    if (!organizationOwnerRole) {
+      return res.status(500).json({ message: 'Organization Owner role not found' });
     }
 
-    const hasRole = await UserFranchiseeRole.findOne({
+    const hasRole = await UserOrganizationRole.findOne({
       userId: user.userId,
-      roleId: crmOwnerRole.roleId,
+      roleId: organizationOwnerRole.roleId,
       status: 'active',
     });
 
     if (!hasRole) {
       return res
         .status(403)
-        .json({ message: 'Access denied. CRM Owner role required' });
+        .json({ message: 'Access denied. Organization Owner role required' });
     }
 
     next();
